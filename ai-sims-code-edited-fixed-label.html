@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Strategic Simulation</title>
+    <style>
+        /* --- FONT LOADING --- */
+        @font-face {
+            font-family: 'Averta';
+            src: url('Averta-Regular.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Averta';
+            src: url('Averta-Bold.otf') format('opentype');
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        /* Base Reset */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Averta', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #FFFFFF;
+            color: #000000;
+            padding: 10px;
+            font-size: 1.125rem; /* 18px base font size */
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container { max-width: 100%; margin: 0 auto; }
+
+        h2.main-title { font-size: 1.5rem; margin-bottom: 0.5rem; color: #000000; text-align: center; font-weight: 400; }
+
+        /* TIMELINE */
+        .timeline { display: flex; justify-content: space-between; align-items: flex-start; position: relative; margin-bottom: 2rem; padding: 0 10px; }
+        .timeline::before { content: ''; position: absolute; top: 30px; left: 50px; right: 50px; height: 3px; background: linear-gradient(to right, #0000FF, #18A48C, #9A1BBE); z-index: 0; }
+        .stage { flex: 1; position: relative; z-index: 1; cursor: pointer; text-align: center; transition: all 0.2s ease; }
+        .stage-number { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; color: #FFFFFF; margin: 0 auto 0.8rem; position: relative; transition: background-color 0.3s ease; box-shadow: 0 0 0 5px #FFFFFF; }
+        .stage-1 .stage-number { background-color: #0000FF; }
+        .stage-2 .stage-number { background-color: #18A48C; }
+        .stage-3 .stage-number { background-color: #9A1BBE; }
+        .stage-title { font-size: 1.25rem; font-weight: bold; margin-bottom: 0.2rem; line-height: 1.2; color: #000000; transition: color 0.3s ease; }
+        .stage:hover .stage-number { background-color: #000000 !important; }
+        .stage:hover .stage-title { color: #000000 !important; }
+        .stage.active .stage-number { transform: scale(1.15); box-shadow: 0 4px 15px rgba(0,0,0,0.2), 0 0 0 5px #FFFFFF; }
+        .stage-brief { font-size: 1rem; color: #666; display: block; padding: 0 5px; }
+
+        /* DETAILS AREA */
+        .stage-detail { display: none; opacity: 0; animation: fadeIn 0.4s ease forwards; }
+        .stage-detail.active { display: block; }
+        @keyframes fadeIn { to { opacity: 1; } }
+
+        .detail-card { background: #F5F5F5; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .detail-card h3 { font-size: 1.75rem; margin-bottom: 1.5rem; text-align: center; color: #000000; }
+        .detail-content { display: flex; flex-direction: column; gap: 2rem; }
+        
+        .detail-text { width: 100%; }
+        .detail-text p { margin-bottom: 1rem; font-size: 1.125rem; }
+        .detail-text ul { padding-left: 0; margin-top: 1rem; list-style-type: none; }
+        .detail-text li { display: flex; align-items: flex-start; margin-bottom: 0.8rem; font-size: 1.125rem; }
+        .bullet { margin-right: 12px; font-weight: bold; color: #000; }
+        .bold-footer { font-weight: bold; color: #000; padding-top: 1.5rem; border-top: 1px solid #ddd; margin-top: 1.5rem; }
+
+        /* --- GRAPHIC CONTAINERS --- */
+        .visual-container {
+            width: 100%; position: relative; background: #fff;
+            border-radius: 8px; border: 1px solid #eee; overflow: hidden;
+            /* Give it a fixed aspect space for absolute positioning */
+            height: 600px; 
+        }
+        
+        .graphic-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; shape-rendering: geometricPrecision; }
+        .graphic-lines line { stroke-linecap: butt; vector-effect: non-scaling-stroke; }
+        
+        /* LINE ANIMATION */
+        .draw-line { opacity: 0; animation: fadeInLine 0.45s forwards ease-out; }
+        .line-dotted { stroke-dasharray: 1 10; stroke-linecap: round; }
+        .line-dashed { stroke-dasharray: 12 8; }
+        @keyframes fadeInLine { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        @keyframes slideLeftBox { from { opacity: 0; transform: translateY(-50%) translateX(30px); } to { opacity: 1; transform: translateY(-50%) translateX(0); } }
+
+        /* --- GRAPHIC 1: STAKEHOLDER MAP (HTML NODES) --- */
+        .map-legend {
+            position: absolute; top: 15px; left: 15px; display: flex; flex-direction: column; gap: 8px;
+            background: rgba(255,255,255,0.95); padding: 12px 18px; border-radius: 12px;
+            border: 1px solid #eee; font-size: 0.9rem; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .legend-title { font-weight: bold; margin-bottom: 4px; color: #333; }
+        .legend-item { display: flex; align-items: center; gap: 8px; font-weight: 500;}
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+        .map-node {
+            position: absolute; transform: translate(-50%, -50%);
+            display: flex; align-items: center; justify-content: center; text-align: center;
+            border-radius: 50%; font-weight: bold; font-size: 1.125rem; line-height: 1.2;
+            width: 100px; height: 100px; z-index: 5; box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            opacity: 0; animation: popIn 0.5s ease forwards; padding: 10px;
+        }
+        .node-policy { background: #0000FF; color: #fff; width: 120px; height: 120px; font-size: 1.25rem; }
+        .node-ind { background: #18A48C; color: #000; }
+        .node-civil { background: #9A1BBE; color: #fff; }
+
+        /* --- GRAPHIC 2: STRATEGY TREE (HTML BOXES) --- */
+        .sim-start-label {
+            position: absolute; top: calc(50% - 36px); left: 18%; transform: translateX(-50%);
+            font-weight: bold; font-size: 1.125rem; color: #1F2937; z-index: 5; white-space: nowrap;
+        }
+        .sim-dot {
+            position: absolute; top: 50%; left: 18%; transform: translate(-50%, -50%);
+            width: 24px; height: 24px; border-radius: 50%; background: #4B5563; z-index: 5;
+        }
+        .strat-box {
+            position: absolute; left: 55.5%; transform: translateY(-50%);
+            width: 39.5%; padding: 1.5rem; border-radius: 8px;
+            font-size: 1.125rem; line-height: 1.4; z-index: 5;
+            opacity: 0; animation: slideLeftBox 0.5s ease forwards;
+        }
+        .strat-title { font-weight: bold; font-size: 1.25rem; margin-bottom: 4px; }
+        .strat-a { background: #0000FF; color: #fff; top: 20%; animation-delay: 1s; }
+        .strat-b { background: #18A48C; color: #000; top: 50%; animation-delay: 1.2s; }
+        .strat-c { background: #9A1BBE; color: #fff; top: 80%; animation-delay: 1.4s; }
+
+        /* --- GRAPHIC 3: CHAT INTERFACE --- */
+        .chat-interface {
+            width: 100%; height: auto; min-height: 450px; 
+            background: linear-gradient(135deg, #F5F0FF 0%, #E8E4F8 100%);
+            padding: 2.5rem; display: flex; flex-direction: column; justify-content: center;
+            box-sizing: border-box; border-radius: 8px; border: 1px solid #eee;
+        }
+        .chat-message {
+            background: #fff; padding: 1.5rem; border-radius: 12px; margin-bottom: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); opacity: 0; animation: slideUp 0.5s forwards;
+            font-size: 1.125rem; max-width: 90%; line-height: 1.5;
+        }
+        .chat-message small { display: block; font-size: 0.95rem; opacity: 0.7; margin-bottom: 8px; font-weight: bold; }
+        .chat-message:nth-child(1) { animation-delay: 0.2s; }
+        .chat-message:nth-child(2) { animation-delay: 0.6s; }
+        .chat-message:nth-child(3) { animation-delay: 1s; }
+        .question { background: #9A1BBE; color: #fff; margin-left: auto; }
+        .answer { border-left: 5px solid #9A1BBE; margin-right: auto; }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* --- DESKTOP / MOBILE TOGGLING --- */
+        .mobile-graphic { display: none; }
+        .desktop-graphic { display: block; }
+
+        /* --- MOBILE RESPONSIVENESS (Trigger at 768px) --- */
+        @media (max-width: 768px) {
+            .desktop-graphic { display: none !important; }
+            .mobile-graphic { display: block !important; }
+
+            .timeline { flex-direction: column; align-items: center; gap: 20px; }
+            .timeline::before { width: 3px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+            .stage { width: 100%; background: #fff; padding: 10px 0; }
+            h2.main-title { font-size: 1.8rem; }
+            .detail-card { padding: 1.5rem; }
+
+            /* Mobile Visual Container Heights */
+            #map-container-mobile { height: 750px; } /* Extra height for clear legend space */
+            #sim-container-mobile { height: 650px; }
+
+            /* Mobile Map Adjustments */
+            .map-legend { top: 10px; left: 10px; padding: 8px 12px; font-size: 0.85rem; }
+            
+            /* Mobile Strategy Tree Adjustments */
+            .sim-start-label { top: 7%; left: 20%; transform: translateY(-50%); }
+            .sim-dot { top: 7%; left: 12%; }
+            .strat-box { width: 69.5%; left: 25.5%; padding: 1rem; }
+            
+            .chat-interface { padding: 1.5rem; min-height: 400px; }
+            .chat-message { padding: 1.25rem; font-size: 1.125rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 class="main-title">AI strategic simulation</h2>
+
+        <div class="timeline">
+            <div class="stage stage-1 active" onclick="toggleStage(1)">
+                <div class="stage-number">1</div>
+                <div class="stage-title">Map & model</div>
+                <span class="stage-brief">Collaborative stakeholder mapping</span>
+            </div>
+            <div class="stage stage-2" onclick="toggleStage(2)">
+                <div class="stage-number">2</div>
+                <div class="stage-title">Simulate & test</div>
+                <span class="stage-brief">Interactive strategy scenarios</span>
+            </div>
+            <div class="stage stage-3" onclick="toggleStage(3)">
+                <div class="stage-number">3</div>
+                <div class="stage-title">Analyse & refine</div>
+                <span class="stage-brief">Real-time AI insights</span>
+            </div>
+        </div>
+
+        <div class="stage-detail stage-1-detail active" id="detail-1">
+            <div class="detail-card">
+                <h3>Map stakeholders and strategies</h3>
+                <div class="detail-content">
+                    
+                    <div class="visual-container desktop-graphic">
+                        <div class="map-legend">
+                            <div class="legend-title">Stakeholders</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#0000FF;"></div>Government</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#18A48C;"></div>Industry</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#9A1BBE;"></div>Civil society</div>
+                        </div>
+
+                        <svg class="graphic-lines">
+                            <line class="draw-line" x1="45%" y1="50%" x2="25%" y2="25%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.2s" />
+                            <line class="draw-line" x1="45%" y1="50%" x2="40%" y2="85%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.3s" />
+                            <line class="draw-line" x1="45%" y1="50%" x2="20%" y2="65%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.4s" />
+                            <line class="draw-line" x1="45%" y1="50%" x2="65%" y2="25%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.5s" />
+                            <line class="draw-line" x1="45%" y1="50%" x2="80%" y2="50%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.6s" />
+                            <line class="draw-line" x1="45%" y1="50%" x2="70%" y2="80%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.7s" />
+
+                            <line class="draw-line line-dotted" x1="25%" y1="25%" x2="20%" y2="65%" stroke="#9CA3AF" stroke-width="2" style="animation-delay: 0.8s" />
+                            <line class="draw-line line-dotted" x1="40%" y1="85%" x2="20%" y2="65%" stroke="#9CA3AF" stroke-width="2" style="animation-delay: 0.9s" />
+
+                            <line class="draw-line line-dashed" x1="25%" y1="25%" x2="65%" y2="25%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.0s" />
+                            <line class="draw-line line-dashed" x1="40%" y1="85%" x2="70%" y2="80%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.1s" />
+                            <line class="draw-line line-dashed" x1="80%" y1="50%" x2="25%" y2="25%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.2s" />
+
+                            <line class="draw-line" x1="65%" y1="25%" x2="80%" y2="50%" stroke="#18A48C" stroke-width="3" style="animation-delay: 1.3s" />
+                            <line class="draw-line" x1="70%" y1="80%" x2="80%" y2="50%" stroke="#18A48C" stroke-width="3" style="animation-delay: 1.4s" />
+                        </svg>
+
+                        <div class="map-node node-policy" style="left: 45%; top: 50%; animation-delay: 0.1s;">Policy<br>Team</div>
+                        <div class="map-node node-ind" style="left: 25%; top: 25%; animation-delay: 0.2s;">Industry A</div>
+                        <div class="map-node node-ind" style="left: 20%; top: 65%; animation-delay: 0.3s;">Regulator</div>
+                        <div class="map-node node-ind" style="left: 40%; top: 85%; animation-delay: 0.4s;">Industry B</div>
+                        <div class="map-node node-civil" style="left: 65%; top: 25%; animation-delay: 0.5s;">NGO</div>
+                        <div class="map-node node-civil" style="left: 80%; top: 50%; animation-delay: 0.6s;">Public</div>
+                        <div class="map-node node-civil" style="left: 70%; top: 80%; animation-delay: 0.7s;">Union</div>
+                    </div>
+
+                    <div class="visual-container mobile-graphic" id="map-container-mobile">
+                        <div class="map-legend">
+                            <div class="legend-title">Stakeholders</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#0000FF;"></div>Government</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#18A48C;"></div>Industry</div>
+                            <div class="legend-item"><div class="legend-dot" style="background:#9A1BBE;"></div>Civil society</div>
+                        </div>
+
+                        <svg class="graphic-lines">
+                            <line class="draw-line" x1="50%" y1="55%" x2="25%" y2="35%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.2s" />
+                            <line class="draw-line" x1="50%" y1="55%" x2="35%" y2="85%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.3s" />
+                            <line class="draw-line" x1="50%" y1="55%" x2="20%" y2="65%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.4s" />
+                            <line class="draw-line" x1="50%" y1="55%" x2="75%" y2="35%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.5s" />
+                            <line class="draw-line" x1="50%" y1="55%" x2="80%" y2="60%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.6s" />
+                            <line class="draw-line" x1="50%" y1="55%" x2="65%" y2="85%" stroke="#0000FF" stroke-width="2" style="animation-delay: 0.7s" />
+
+                            <line class="draw-line line-dotted" x1="25%" y1="35%" x2="20%" y2="65%" stroke="#9CA3AF" stroke-width="2" style="animation-delay: 0.8s" />
+                            <line class="draw-line line-dotted" x1="35%" y1="85%" x2="20%" y2="65%" stroke="#9CA3AF" stroke-width="2" style="animation-delay: 0.9s" />
+
+                            <line class="draw-line line-dashed" x1="25%" y1="35%" x2="75%" y2="35%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.0s" />
+                            <line class="draw-line line-dashed" x1="35%" y1="85%" x2="65%" y2="85%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.1s" />
+                            <line class="draw-line line-dashed" x1="80%" y1="60%" x2="25%" y2="35%" stroke="#9A1BBE" stroke-width="2" style="animation-delay: 1.2s" />
+
+                            <line class="draw-line" x1="75%" y1="35%" x2="80%" y2="60%" stroke="#18A48C" stroke-width="3" style="animation-delay: 1.3s" />
+                            <line class="draw-line" x1="65%" y1="85%" x2="80%" y2="60%" stroke="#18A48C" stroke-width="3" style="animation-delay: 1.4s" />
+                        </svg>
+
+                        <div class="map-node node-policy" style="left: 50%; top: 55%; animation-delay: 0.1s;">Policy<br>Team</div>
+                        <div class="map-node node-ind" style="left: 25%; top: 35%; animation-delay: 0.2s;">Industry A</div>
+                        <div class="map-node node-ind" style="left: 20%; top: 65%; animation-delay: 0.3s;">Regulator</div>
+                        <div class="map-node node-ind" style="left: 35%; top: 85%; animation-delay: 0.4s;">Industry B</div>
+                        <div class="map-node node-civil" style="left: 75%; top: 35%; animation-delay: 0.5s;">NGO</div>
+                        <div class="map-node node-civil" style="left: 80%; top: 60%; animation-delay: 0.6s;">Public</div>
+                        <div class="map-node node-civil" style="left: 65%; top: 85%; animation-delay: 0.7s;">Union</div>
+                    </div>
+
+                    <div class="detail-text">
+                        <p>Working together, we map your stakeholders and their objectives based on your policy challenge.</p>
+                        <p>This collaborative process ensures we capture the nuances of relationships, competing interests, and strategic priorities that matter most to your work.</p>
+                        <ul>
+                            <li><span class="bullet">•</span> Identify key stakeholders across government, industry, and public groups.</li>
+                            <li><span class="bullet">•</span> Map objectives, incentives, and potential objections.</li>
+                            <li><span class="bullet">•</span> Build a realistic simulated environment using AI agents.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stage-detail stage-2-detail" id="detail-2">
+            <div class="detail-card">
+                <h3>Test strategies in simulated scenarios</h3>
+                <div class="detail-content">
+                    
+                    <div class="visual-container desktop-graphic">
+                        <svg class="graphic-lines">
+                            <line class="draw-line" x1="18%" y1="50%" x2="54.5%" y2="50%" stroke="#000000" stroke-width="4" style="animation-delay: 0.2s"/>
+
+                            <line class="draw-line" x1="54.5%" y1="50%" x2="54.5%" y2="20%" stroke="#0000FF" stroke-width="4" style="animation-delay: 0.5s"/>
+                            <line class="draw-line" x1="54.5%" y1="20%" x2="55.5%" y2="20%" stroke="#0000FF" stroke-width="4" style="animation-delay: 0.6s"/>
+
+                            <line class="draw-line" x1="54.5%" y1="50%" x2="55.5%" y2="50%" stroke="#18A48C" stroke-width="4" style="animation-delay: 0.7s"/>
+
+                            <line class="draw-line" x1="54.5%" y1="50%" x2="54.5%" y2="80%" stroke="#9A1BBE" stroke-width="4" style="animation-delay: 0.9s"/>
+                            <line class="draw-line" x1="54.5%" y1="80%" x2="55.5%" y2="80%" stroke="#9A1BBE" stroke-width="4" style="animation-delay: 1.0s"/>
+                        </svg>
+
+                        <div class="sim-start-label">Your team today</div>
+                        <div class="sim-dot"></div>
+                        
+                        <div class="strat-box strat-a">
+                            <div class="strat-title">Strategy A</div>
+                            High risk: Goal exceeded, potential stakeholder backlash
+                        </div>
+                        <div class="strat-box strat-b">
+                            <div class="strat-title">Strategy B</div>
+                            Optimal: Goal achieved, risks managed.
+                        </div>
+                        <div class="strat-box strat-c">
+                            <div class="strat-title">Strategy C</div>
+                            Slow uptake: Cautious approach, limited impact.
+                        </div>
+                    </div>
+
+                    <div class="visual-container mobile-graphic" id="sim-container-mobile">
+                        <svg class="graphic-lines">
+                            <line class="draw-line" x1="11.7%" y1="25%" x2="25.5%" y2="25%" stroke="#0000FF" stroke-width="4" style="animation-delay: 0.5s"/>
+                            <line class="draw-line" x1="11.7%" y1="55%" x2="25.5%" y2="55%" stroke="#18A48C" stroke-width="4" style="animation-delay: 0.7s"/>
+                            <line class="draw-line" x1="11.7%" y1="85%" x2="25.5%" y2="85%" stroke="#9A1BBE" stroke-width="4" style="animation-delay: 0.9s"/>
+                            <line class="draw-line" x1="12%" y1="7%" x2="12%" y2="85%" stroke="#000000" stroke-width="4" style="animation-delay: 0.2s"/>
+                        </svg>
+
+                        <div class="sim-start-label">Your team today</div>
+                        <div class="sim-dot"></div>
+                        
+                        <div class="strat-box strat-a" style="top: 25%;">
+                            <div class="strat-title">Strategy A</div>
+                            High risk: Goal exceeded, potential stakeholder backlash
+                        </div>
+                        <div class="strat-box strat-b" style="top: 55%;">
+                            <div class="strat-title">Strategy B</div>
+                            Optimal: Goal achieved, risks managed.
+                        </div>
+                        <div class="strat-box strat-c" style="top: 85%;">
+                            <div class="strat-title">Strategy C</div>
+                            Slow uptake: Cautious approach, limited impact.
+                        </div>
+                    </div>
+                    
+                    <div class="detail-text">
+                        <p>Together, we select two-to-three strategies or policies to test within interactive simulated scenarios.</p>
+                        <p>This reveals which strategy is most effective at reaching your goals and uncovers unintended or unexpected impacts before they happen in the real world.</p>
+                        <ul>
+                            <li><span class="bullet">•</span> Run multiple strategic scenarios simultaneously.</li>
+                            <li><span class="bullet">•</span> Observe how stakeholders respond and interact.</li>
+                            <li><span class="bullet">•</span> Identify risks, opportunities, and second-order effects.</li>
+                        </ul>
+                        <p class="bold-footer">We can also explore reasonable best and worst case scenarios to visualise success and/or 'red' team your plans.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stage-detail stage-3-detail" id="detail-3">
+            <div class="detail-card">
+                <h3>Explore results with real-time AI analysis</h3>
+                <div class="detail-content">
+                    <div class="chat-interface">
+                        <div class="chat-message question">
+                            <small>You ask:</small>
+                            Which stakeholders might coordinate to slow implementation?
+                        </div>
+                        <div class="chat-message answer">
+                            <small>AI analysis:</small>
+                            Industry groups A and B made a coordinated appeal to the regulator to defer the implementation until 2030...
+                        </div>
+                        <div class="chat-message question">
+                            <small>You ask:</small>
+                            What if we offered a transition period?
+                        </div>
+                    </div>
+                    <div class="detail-text">
+                        <p>Our expert team facilitates a workshop where you can explore the simulation results interactively, getting insights on the spot.</p>
+                        <p>Ask questions, test alternative approaches, and refine your strategy in real-time with on-demand AI analysis.</p>
+                        <ul>
+                            <li><span class="bullet">•</span> Interactive workshop with expert facilitation.</li>
+                            <li><span class="bullet">•</span> Real-time Q&A with AI-powered insights.</li>
+                            <li><span class="bullet">•</span> Test "what if" scenarios instantly.</li>
+                            <li><span class="bullet">•</span> Leave with actionable recommendations.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <script>
+       function sendHeight() {
+           const height = document.documentElement.scrollHeight || document.body.scrollHeight;
+           window.parent.postMessage({ type: 'resizeIframe', height: height }, '*');
+       }
+
+       const resizeObserver = new ResizeObserver(() => {
+           sendHeight();
+       });
+       resizeObserver.observe(document.body);
+
+       function toggleStage(num) {
+           document.querySelectorAll('.stage').forEach(el => el.classList.remove('active'));
+           document.querySelectorAll('.stage-detail').forEach(el => el.classList.remove('active'));
+           document.querySelector(`.stage-${num}`).classList.add('active');
+           
+           const detail = document.getElementById(`detail-${num}`);
+           detail.classList.add('active');
+           
+           // Reset animations
+           const animated = detail.querySelectorAll('[style*="animation"], .draw-line, .strat-box');
+           animated.forEach(el => {
+               el.style.animation = 'none';
+               el.offsetHeight; 
+               el.style.animation = '';
+           });
+
+           setTimeout(sendHeight, 100);
+       }
+   </script>
+</body>
+</html>
